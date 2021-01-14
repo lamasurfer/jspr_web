@@ -4,15 +4,17 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 public class Server {
 
     private ExecutorService executorService;
-    private List<String> validPaths;
+    private final Map<String, Map<String, Handler>> handlers = new ConcurrentHashMap<>();
 
     public void listen(int port) {
-        if (executorService == null || validPaths == null) {
+        if (executorService == null || handlers.isEmpty()) {
             throw new IllegalStateException("Illegal servers state!");
         }
 
@@ -23,7 +25,7 @@ public class Server {
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("Connection accepted");
-                executorService.execute(new Connection(clientSocket, validPaths));
+                executorService.execute(new Connection(clientSocket, handlers));
             }
         } catch (IOException e) {
             System.out.println(e.getMessage());
@@ -38,7 +40,15 @@ public class Server {
         this.executorService = executorService;
     }
 
-    public void setValidPaths(List<String> validPaths) {
-        this.validPaths = validPaths;
+    public void addHandler(String method, String path, Handler handler) {
+        Map<String, Handler> valueMap = handlers.getOrDefault(method, new ConcurrentHashMap<>());
+        valueMap.put(path, handler);
+        handlers.put(method, valueMap);
+    }
+
+    public void addHandler(String method, List<String> paths, Handler handler) {
+        for (String path : paths) {
+            addHandler(method, path, handler);
+        }
     }
 }
